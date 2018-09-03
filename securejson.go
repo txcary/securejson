@@ -1,12 +1,13 @@
 package securejson
 
 import (
+	"errors"
 	"encoding/json"
 )
 
 type Storage interface {
-	PutJson(inputJson []byte) (error)
-	GetJson(inputJson []byte) ([]byte, error)
+	Put(key string, value []byte) (error)
+	Get(key string) ([]byte, error)
 }
 
 type SecureJson struct {
@@ -19,21 +20,7 @@ type Json struct {
 	EncryptedData string
 	Timestamp string
 	PublicKey string
-}
-
-func (obj *SecureJson) genHash(userData []byte, encryptedData []byte, timeData []byte, pubkeyData []byte) (fullHash []byte) {
-	userHash,_ := obj.hash(userData)
-	dataHash,_ := obj.hash(encryptedData)	
-	timeHash,_ := obj.hash(timeData[:8])
-	pubkeyHash,_ := obj.hash(pubkeyData[:65])	
-	
-	full := make([]byte, 32*4)
-	copy(full[:32], userHash)
-	copy(full[32:64], pubkeyHash)
-	copy(full[64:96], timeHash)
-	copy(full[96:128], dataHash)
-	fullHash,_ = obj.hash(full[:128])
-	return
+	//TODO: NewPublicKey string
 }
 
 func (obj *SecureJson) GenerateJson(user string, passwd string, data string) (outputJson []byte, err error) {
@@ -58,15 +45,15 @@ func (obj *SecureJson) GenerateJson(user string, passwd string, data string) (ou
 	return
 }
 
-func (obj *SecureJson) VerifyJson(jsonBytes []byte) (ok bool) {
+func (obj *SecureJson) VerifyJson(jsonBytes []byte) (ok bool, err error) {
 	var jsonMap Json
-	err := json.Unmarshal(jsonBytes, &jsonMap)
+	err = json.Unmarshal(jsonBytes, &jsonMap)
 	if err != nil {
-		return false
+		return false, err
 	}	
 
-	if !obj.checkTimestamp(jsonMap.Timestamp) {
-		return false
+	if !obj.checkTimestampBeforeNow(jsonMap.Timestamp) {
+		return false, err
 	}
 	
 	userData := []byte(jsonMap.UserName)
@@ -76,16 +63,46 @@ func (obj *SecureJson) VerifyJson(jsonBytes []byte) (ok bool) {
 	sigData := obj.stringToBytes(jsonMap.Signature)
 	fullHash := obj.genHash(userData, encryptedData, timeData, pubkeyData)
 
-	return obj.verify(fullHash, pubkeyData, sigData)
+	ok = obj.verify(fullHash, pubkeyData, sigData)
+	if ok {
+		return
+	} else {
+		err = errors.New("Signature verify fail")
+		return false, err
+	}
 }
 
 func (obj *SecureJson) PutJson(inputJson []byte) (err error) {
-	err = obj.storageStrategy.PutJson(inputJson)
+	var ok bool
+	if ok, err = obj.VerifyJson(inputJson); !ok || err!=nil {
+		return
+	}
+	outputJson, err := obj.getJsonFromStorage(inputJson)
+	if err != nil {
+		err = obj.putJsonToStorage(inputJson)
+		return
+	}
+	if ok, err = obj.checkInputOutputJson(inputJson, outputJson); err!=nil || !ok {
+		return
+	}
+
+	err = obj.putJsonToStorage(inputJson)
 	return
 }
 
 func (obj *SecureJson) GetJson(inputJson []byte) (outputJson []byte, err error) {
-	outputJson, err = obj.storageStrategy.GetJson(inputJson)
+	var ok bool
+	if ok, err = obj.VerifyJson(inputJson); !ok || err!=nil {
+		return
+	}
+	outputJson, err = obj.getJsonFromStorage(inputJson)
+	if err != nil {
+		return
+	}
+	if ok, err = obj.checkInputOutputJson(inputJson, outputJson); err!=nil || !ok {
+		outputJson = []byte{}
+		return
+	}
 	return
 }
 

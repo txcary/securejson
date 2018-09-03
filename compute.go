@@ -3,15 +3,91 @@ import(
 	"crypto/aes"
 	"crypto/cipher"
 	"encoding/hex"
+	"encoding/json"
+	"errors"
 	"time"
 	"fmt"
 	"github.com/btcsuite/btcd/btcec"
 	"golang.org/x/crypto/sha3"
 )
 
-func (obj *SecureJson) checkTimestamp(timeStr string) (ok bool) {
-	var timestamp int64
+func (obj *SecureJson) genHash(userData []byte, encryptedData []byte, timeData []byte, pubkeyData []byte) (fullHash []byte) {
+	userHash,_ := obj.hash(userData)
+	dataHash,_ := obj.hash(encryptedData)	
+	timeHash,_ := obj.hash(timeData[:8])
+	pubkeyHash,_ := obj.hash(pubkeyData[:65])	
+	
+	full := make([]byte, 32*4)
+	copy(full[:32], userHash)
+	copy(full[32:64], pubkeyHash)
+	copy(full[64:96], timeHash)
+	copy(full[96:128], dataHash)
+	fullHash,_ = obj.hash(full[:128])
+	return
+}
+
+func (obj *SecureJson) checkInputOutputJson(inputJson []byte, outputJson []byte) (ok bool, err error) {
+	ok = false
+	var ji Json
+	err = json.Unmarshal(inputJson, &ji)
+	if err != nil {
+		return
+	}
+	var jo Json
+	err = json.Unmarshal(outputJson, &jo)
+	if err != nil {
+		return
+	}
+	
+	if ji.UserName != jo.UserName {
+		err = errors.New("Check fail for UserName. "+ji.UserName+"!="+jo.UserName)
+		return
+	}
+	if ji.PublicKey != jo.PublicKey {
+		err = errors.New("Check fail for PublicKey")
+		return
+	}
+	if obj.convertFromStringToInt64(ji.Timestamp) < obj.convertFromStringToInt64(jo.Timestamp) {
+		err = errors.New("Check fail for Timestamp. Input timestamp must be greater then the ouput one.")
+		return
+	}
+	ok = true
+	return
+}
+
+func (obj *SecureJson) getUserNameFromJson(inputJson []byte) (userName string, err error) {
+	var jsonStruct Json
+	userName = ""
+	err = json.Unmarshal(inputJson, &jsonStruct)
+	if err == nil {
+		userName = jsonStruct.UserName
+	}
+	return
+}
+
+func (obj *SecureJson) getJsonFromStorage(inputJson []byte) (outputJson []byte, err error) {
+	userName, err := obj.getUserNameFromJson(inputJson)
+	if err == nil {
+		outputJson, err = obj.storageStrategy.Get(userName)
+	}
+	return
+}
+
+func (obj *SecureJson) putJsonToStorage(inputJson []byte) (err error) {
+	userName, err := obj.getUserNameFromJson(inputJson)
+	if err == nil {
+		err = obj.storageStrategy.Put(userName, inputJson)
+	}
+	return
+}
+
+func (obj *SecureJson) convertFromStringToInt64(timeStr string) (timestamp int64) {
 	fmt.Sscanf(timeStr, "%x", &timestamp) 
+	return
+}
+
+func (obj *SecureJson) checkTimestampBeforeNow(timeStr string) (ok bool) {
+	timestamp := obj.convertFromStringToInt64(timeStr)
 	timenow := time.Now().UnixNano()
 	return (timenow>timestamp)
 }
