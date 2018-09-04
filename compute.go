@@ -1,28 +1,47 @@
 package securejson
-import(
+
+import (
 	"crypto/aes"
 	"crypto/cipher"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"time"
 	"fmt"
 	"github.com/btcsuite/btcd/btcec"
 	"golang.org/x/crypto/sha3"
+	"time"
 )
 
+func (obj *SecureJson) encrypt(plainText []byte, iv []byte, key []byte) ([]byte, error) {
+	if len(iv) < aes.BlockSize {
+		return []byte{}, errors.New("iv size error")
+	}
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		fmt.Println(err)
+		return []byte{}, err
+	}
+	cipherText := make([]byte, len(plainText))
+	//iv := make([]byte, aes.BlockSize)
+
+	stream := cipher.NewCTR(block, iv[:aes.BlockSize])
+	stream.XORKeyStream(cipherText, plainText)
+	return cipherText, err
+}
+
 func (obj *SecureJson) genHash(userData []byte, encryptedData []byte, timeData []byte, pubkeyData []byte) (fullHash []byte) {
-	userHash,_ := obj.hash(userData)
-	dataHash,_ := obj.hash(encryptedData)	
-	timeHash,_ := obj.hash(timeData[:8])
-	pubkeyHash,_ := obj.hash(pubkeyData[:65])	
-	
+	userHash, _ := obj.hash(userData)
+	dataHash, _ := obj.hash(encryptedData)
+	timeHash, _ := obj.hash(timeData[:8])
+	pubkeyHash, _ := obj.hash(pubkeyData[:65])
+
 	full := make([]byte, 32*4)
 	copy(full[:32], userHash)
 	copy(full[32:64], pubkeyHash)
 	copy(full[64:96], timeHash)
 	copy(full[96:128], dataHash)
-	fullHash,_ = obj.hash(full[:128])
+	fullHash, _ = obj.hash(full[:128])
 	return
 }
 
@@ -38,9 +57,9 @@ func (obj *SecureJson) checkInputOutputJson(inputJson []byte, outputJson []byte)
 	if err != nil {
 		return
 	}
-	
+
 	if ji.UserName != jo.UserName {
-		err = errors.New("Check fail for UserName. "+ji.UserName+"!="+jo.UserName)
+		err = errors.New("Check fail for UserName. " + ji.UserName + "!=" + jo.UserName)
 		return
 	}
 	if ji.PublicKey != jo.PublicKey {
@@ -82,31 +101,31 @@ func (obj *SecureJson) putJsonToStorage(inputJson []byte) (err error) {
 }
 
 func (obj *SecureJson) convertFromStringToInt64(timeStr string) (timestamp int64) {
-	fmt.Sscanf(timeStr, "%x", &timestamp) 
+	fmt.Sscanf(timeStr, "%x", &timestamp)
 	return
 }
 
 func (obj *SecureJson) checkTimestampBeforeNow(timeStr string) (ok bool) {
 	timestamp := obj.convertFromStringToInt64(timeStr)
 	timenow := time.Now().UnixNano()
-	return (timenow>timestamp)
+	return (timenow > timestamp)
 }
 
 func (obj *SecureJson) bytesToString(msg []byte) string {
-	return hex.EncodeToString(msg)
+	return base64.StdEncoding.EncodeToString(msg)
 }
 
 func (obj *SecureJson) stringToBytes(msg string) (res []byte) {
-	var err error 
-	res, err = hex.DecodeString(msg)
+	var err error
+	res, err = base64.StdEncoding.DecodeString(msg)
 	if err != nil {
 		panic(err)
 	}
 	return
 }
 
-func (obj *SecureJson) verify(msg []byte, pub []byte, sig []byte) (bool) {
-	pubKey , err := btcec.ParsePubKey(pub, btcec.S256())
+func (obj *SecureJson) verify(msg []byte, pub []byte, sig []byte) bool {
+	pubKey, err := btcec.ParsePubKey(pub, btcec.S256())
 	if err != nil {
 		return false
 	}
@@ -146,25 +165,4 @@ func (obj *SecureJson) hash(data []byte) ([]byte, error) {
 	hashObj.Write(data)
 	hashObj.Read(sum)
 	return sum, nil
-}
-
-func (obj *SecureJson) encrypt(data string, key []byte) ([]byte, error) {
-	plainText := []byte(data)
-	block, err := aes.NewCipher(key)
-	if err != nil {
-		fmt.Println(err)
-		return []byte{}, err
-	}
-	cipherText := make([]byte, len(plainText))
-	iv := make([]byte, aes.BlockSize)
-	
-	stream := cipher.NewCTR(block, iv)
-	stream.XORKeyStream(cipherText, plainText)
-	return cipherText, err
-}
-
-
-func (obj *SecureJson) decrypt(data string, key []byte) ([]byte, error) {
-	out, err := obj.encrypt(data, key)
-	return out, err
 }

@@ -1,31 +1,32 @@
 package securejson
+
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 )
 
 type StubStorage struct {
-	jsonBytes []byte	
+	jsonBytes []byte
 }
 
-func (obj *StubStorage) Put(key string, value []byte) (error) {
-	obj.jsonBytes = value 
+func (obj *StubStorage) Put(key string, value []byte) error {
+	obj.jsonBytes = value
 	//fmt.Println("Put", string(obj.jsonBytes))
 	return nil
 }
-	
+
 func (obj *StubStorage) Get(key string) ([]byte, error) {
-	if len(obj.jsonBytes)==0 {
+	if len(obj.jsonBytes) == 0 {
 		return []byte{}, errors.New("Empty")
 	}
 	//fmt.Println("Get", string(obj.jsonBytes))
-	return obj.jsonBytes, nil	
+	return obj.jsonBytes, nil
 }
-
 
 func ExampleNew() {
 	storage := new(StubStorage)
-	obj := New(storage)	
+	obj := New(storage)
 	jsonBytes, err := obj.GenerateJson("MyUser", "1234", "MyData")
 	if err != nil {
 		panic(err)
@@ -50,6 +51,19 @@ func ExampleNew() {
 	ok, err = obj.VerifyJson(jsonBytes)
 	if err != nil {
 		fmt.Println("Verify Json Fail")
+	}
+	var data Json
+	err = json.Unmarshal(jsonBytes, &data)
+	if err != nil {
+		fmt.Println("Json Unmarshal Fail")
+	}
+	passwd, _ := obj.hash([]byte("1234"))
+	plain, err := obj.Decrypt(data.EncryptedData, data.UserName, passwd)
+	if err != nil {
+		fmt.Println("Decrypt Fail")
+	}
+	if string(plain) != "MyData" {
+		fmt.Println("Decrypted data Fail")
 	}
 	fmt.Println(ok)
 	//output:
