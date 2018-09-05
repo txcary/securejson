@@ -40,20 +40,20 @@ func (obj *SecureJson) GenerateJson(user string, passwd string, data string) (ou
 	privKey, _ := obj.hash([]byte(passwd))
 	iv, _ := obj.hash([]byte(user))
 
-	userData := []byte(user)
-	encryptedData, _ := obj.encrypt([]byte(data), iv, privKey)
-	timeData, _ := obj.getTimestamp()
-	pubkeyData, _ := obj.getPubKey(privKey)
+	userBytes := []byte(user)
+	encryptedBytes, _ := obj.encrypt([]byte(data), iv, privKey)
+	timeBytes, _ := obj.getTimestamp()
+	pubkeyBytes, _ := obj.getPubKey(privKey)
 
-	fullHash := obj.genHash(userData, encryptedData, timeData, pubkeyData)
-	sigData, _ := obj.sign(fullHash, privKey)
+	fullHash := obj.genHash(userBytes, encryptedBytes, timeBytes, pubkeyBytes)
+	sigBytes, _ := obj.sign(fullHash, privKey)
 
 	var jsonMap Json
 	jsonMap.UserName = user
-	jsonMap.Signature = obj.bytesToString(sigData)
-	jsonMap.EncryptedData = obj.bytesToString(encryptedData)
-	jsonMap.Timestamp = obj.bytesToString(timeData)
-	jsonMap.PublicKey = obj.bytesToString(pubkeyData)
+	jsonMap.Signature = obj.bytesToString(sigBytes)
+	jsonMap.EncryptedData = obj.bytesToString(encryptedBytes)
+	jsonMap.Timestamp = obj.bytesToString(timeBytes)
+	jsonMap.PublicKey = obj.bytesToString(pubkeyBytes)
 
 	outputJson, err = json.Marshal(jsonMap)
 	return

@@ -30,11 +30,11 @@ func (obj *SecureJson) encrypt(plainText []byte, iv []byte, key []byte) ([]byte,
 	return cipherText, err
 }
 
-func (obj *SecureJson) genHash(userData []byte, encryptedData []byte, timeData []byte, pubkeyData []byte) (fullHash []byte) {
-	userHash, _ := obj.hash(userData)
-	dataHash, _ := obj.hash(encryptedData)
-	timeHash, _ := obj.hash(timeData[:8])
-	pubkeyHash, _ := obj.hash(pubkeyData[:65])
+func (obj *SecureJson) genHash(userBytes []byte, encryptedBytes []byte, timeBytes []byte, pubkeyBytes []byte) (fullHash []byte) {
+	userHash, _ := obj.hash(userBytes)
+	dataHash, _ := obj.hash(encryptedBytes)
+	timeHash, _ := obj.hash(timeBytes[:4])
+	pubkeyHash, _ := obj.hash(pubkeyBytes[:65])
 
 	full := make([]byte, 32*4)
 	copy(full[:32], userHash)
@@ -154,7 +154,7 @@ func (obj *SecureJson) getPubKey(privKey []byte) ([]byte, error) {
 
 func (obj *SecureJson) getTimestamp() ([]byte, error) {
 	timeNowBytes := make([]byte, 8)
-	timeNowStr := fmt.Sprintf("%x", time.Now().UnixNano())
+	timeNowStr := fmt.Sprintf("%x", time.Now().Unix())
 	timeNowBytes, err := hex.DecodeString(timeNowStr)
 	return timeNowBytes, err
 }
