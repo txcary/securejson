@@ -24,17 +24,39 @@ func (obj *StubStorage) Get(key string) ([]byte, error) {
 	return obj.jsonBytes, nil
 }
 
+func testJson(jsonBytes []byte, logprifix string, obj *SecureJson) {
+	ok, err := obj.VerifyJson(jsonBytes)
+	if err != nil || !ok {
+		fmt.Println(err)
+		fmt.Println(logprifix, "Verify the Json Fail")
+	}
+	var data Json
+	err = json.Unmarshal(jsonBytes, &data)
+	if err != nil {
+		fmt.Println(logprifix, "Json Unmarshal Fail")
+	}
+	passwd, _ := obj.hash([]byte("1234"))
+	plain, err := obj.Decrypt(data.EncryptedData, data.UserName, passwd)
+	if err != nil {
+		fmt.Println(logprifix, "Decrypt Fail")
+	}
+	if string(plain) != "MyData" {
+		fmt.Println(logprifix, "Decrypted data Fail")
+	}
+}
+
 func ExampleNew() {
 	storage := new(StubStorage)
 	obj := New(storage)
+	jsonBytes := []byte(`{"UserName":"MyUser","Signature":"MEUCIDJmafX+XGJV+Ws2jz0lF2YdJLcrEXAw1ZBPB0/+KjJyAiEA1CR3f/pbngSl0P0mqb7McKSbveSsQ1ir5L4ulpKamuw=","EncryptedData":"F4Zw1vYy","Timestamp":"W5D07g==","PublicKey":"BCNhwc+1nmUYLSDJnacQaKQB1YyT26gdwHCZZd1iwsB14rfGvwv9fuAHjyln9Alap2Voxp/rrdiU2QvE8HuMt5s="}`)
+	testJson(jsonBytes, "Hardcoded", obj)
+
 	jsonBytes, err := obj.GenerateJson("MyUser", "1234", "MyData")
 	if err != nil {
 		panic(err)
 	}
-	ok, err := obj.VerifyJson(jsonBytes)
-	if err != nil || !ok {
-		fmt.Println("Verify the Generated Json Fail")
-	}
+	testJson(jsonBytes, "Generated", obj)
+	
 	_, err = obj.GetJson(jsonBytes)
 	if err == nil {
 		fmt.Println("Expecting error when no value stored")
@@ -45,27 +67,10 @@ func ExampleNew() {
 	}
 	_, err = obj.GetJson(jsonBytes)
 	if err != nil {
-		fmt.Println(err)
 		fmt.Println("Get Json Fail")
 	}
-	ok, err = obj.VerifyJson(jsonBytes)
-	if err != nil {
-		fmt.Println("Verify Json Fail")
-	}
-	var data Json
-	err = json.Unmarshal(jsonBytes, &data)
-	if err != nil {
-		fmt.Println("Json Unmarshal Fail")
-	}
-	passwd, _ := obj.hash([]byte("1234"))
-	plain, err := obj.Decrypt(data.EncryptedData, data.UserName, passwd)
-	if err != nil {
-		fmt.Println("Decrypt Fail")
-	}
-	if string(plain) != "MyData" {
-		fmt.Println("Decrypted data Fail")
-	}
-	fmt.Println(ok)
+	testJson(jsonBytes, "Get", obj)
+	fmt.Println(true)
 	//output:
 	//true
 }

@@ -1,51 +1,32 @@
 var EC = require('./elliptic/elliptic.min').ec;
 var SHA3 = require('./sha3/sha3.min');
-var CRYPTO = require('./crypto/crypto-js.min');
+var AES = require('./aes/index.min')
+var BASE64 = require('./base64/base64js.min')
 
-// Create and initialize EC context
-// (better do it once and reuse it)
-var ec = new EC('secp256k1');
+var jsonStr = GenerateJson("MyUser", "1234", "MyData");
+console.log(jsonStr);
 
-var out = CRYPTO.AES.encrypt("aaa", "bbb", {mode: CRYPTO.mode.CTR, iv: "aaaa"});
-//console.log(out)
+function bytesToBase64(bytes) {
+	return BASE64.fromByteArray(bytes);
+}
 
-var ts = Math.round((new Date()).getTime() / 1000);
-console.log(ts);
+function base64ToBytes(str) {
+	return BASE64.toByteArray(str);
+}
 
-// Generate keys
-/*
-var key = ec.genKeyPair();
-prihex = key.getPrivate('hex')
-pubhex = key.getPublic(false, 'hex')
-*/
-//console.log(SHA3.shake256("1234", 256))
-//console.log(window.performance.now())
-//var prihex = "c9afa9d845ba75166b5c215767b1d6934e50c3db36e89b127b8a622b120f6721";
-var prihex = SHA3.shake256('1234', 256);
+function base64ToHex(str) {
+	return bytesToHex(base64ToBytes(str));
+}
 
-var keys = ec.keyFromPrivate(prihex, 'hex');
-var pubhex = keys.getPublic(false, 'hex');
-//console.log(prihex.length/2)
-//console.log(prihex)
-//console.log(pubhex.length/2);
-//console.log(pubhex);
+function hexToBase64(hex) {
+	return bytesToBase64(hexToBytes(hex));
+}
 
-pubkey = ec.keyFromPublic(pubhex, 'hex');
-prikey = ec.keyFromPrivate(prihex, 'hex');
-
-var msg = [ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 ];
-var sig = ec.sign(msg, prikey);
-//console.log(ec.verify(msg, sig, pubkey));
-
-// Sign the message's hash (input must be an array, or a hex-string)
-var msgHash = [ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 ];
-var signature = prikey.sign(msgHash);
-
-// Export DER encoded signature in Array
-var derSign = signature.toDER();
-
-// Verify signature
-//console.log(pubkey.verify(msgHash, derSign));
+function encrypt(dataBytes, ivBytes, keyBytes) {
+	var aesCtr = new AES.ModeOfOperation.ctr(keyBytes, ivBytes);
+	var encryptedBytes = aesCtr.encrypt(dataBytes);
+	return encryptedBytes;
+}
 
 function GenerateJson(user, passwd, data) {
 	var ec = new EC('secp256k1');
@@ -55,7 +36,25 @@ function GenerateJson(user, passwd, data) {
 	var pubkeyHex = prikey.getPublic(false, 'hex');
 	var pubkey = ec.keyFromPublic(pubkeyHex, 'hex');
 	
-	var iv = SHA3.shake256(user, 256);
+	var iv = SHA3.shake256(user, 128);
+	var encryptedDataBytes = encrypt(stringToBytes(data), hexToBytes(iv), hexToBytes(prikeyHex));
+	var encryptedDataHex = bytesToHex(encryptedDataBytes);
+	
+	var timestampHex = bytesToHex(intToBytes(getTimestamp()));
+	var userHex = bytesToHex(stringToBytes(user));
+	
+	var fullHash = genHash(userHex, encryptedDataHex, timestampHex, pubkeyHex);
+	var sigHex = bytesToHex(prikey.sign(fullHash).toDER());
+	var obj = {
+		UserName : user,
+		Signature : hexToBase64(sigHex),
+		EncryptedData : hexToBase64(encryptedDataHex),
+		Timestamp : hexToBase64(timestampHex),
+		PublicKey : hexToBase64(pubkeyHex)
+	};
+
+	jsonStr = JSON.stringify(obj);
+	return jsonStr;
 }
 
 function getPriKey(prikeyHex) {
@@ -73,16 +72,33 @@ function getTimestamp() {
 	return Math.round((new Date()).getTime() / 1000);
 }
 
-function genHash(user, data, time, pubkey) {
-	var userHash = SHA3.shake256.array(hexToBytes(user), 256);
-	var dataHash = SHA3.shake256.array(hexToBytes(data), 256);
-	var timeHash = SHA3.shake256.array(hexToBytes(time), 256);
-	var pubkeyHash = SHA3.shake256.array(hexToBytes(pubkey), 256);
+function intToBytes(numb) {
+	var bytesLen = 4;
+	var bytes = new Array(bytesLen-1);
+	for(var i=bytesLen; i>0; i--) {
+		bytes[i-1] = numb & 0xff;
+		numb = numb>>8;
+	}
+	return bytes;
+}
+
+function genHash(userHex, dataHex, timeHex, pubkeyHex) {
+	var userHash = SHA3.shake256.array(hexToBytes(userHex), 256);
+	var dataHash = SHA3.shake256.array(hexToBytes(dataHex), 256);
+	var timeHash = SHA3.shake256.array(hexToBytes(timeHex), 256);
+	var pubkeyHash = SHA3.shake256.array(hexToBytes(pubkeyHex), 256);
 	var full = Array();
-	//full.concat( hexToBytes(userHash), hexToBytes(dataHash), hexToBytes(timeHash), hexToBytes(pubkeyHash) );
-	full.concat( userHash, pubkeyHash, timeHash, dataHash );
+	full = full.concat( userHash, pubkeyHash, timeHash, dataHash );
 	var fullHash = SHA3.shake256.array(full, 256);
 	return fullHash
+}
+
+function bytesToString(bytes) {
+	return AES.utils.hex.fromBytes(bytes);
+}
+
+function stringToBytes(str) {
+	return AES.utils.utf8.toBytes(str);
 }
 
 function hexToBytes(hex) {

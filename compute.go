@@ -33,7 +33,7 @@ func (obj *SecureJson) encrypt(plainText []byte, iv []byte, key []byte) ([]byte,
 func (obj *SecureJson) genHash(userBytes []byte, encryptedBytes []byte, timeBytes []byte, pubkeyBytes []byte) (fullHash []byte) {
 	userHash, _ := obj.hash(userBytes)
 	dataHash, _ := obj.hash(encryptedBytes)
-	timeHash, _ := obj.hash(timeBytes[:4])
+	timeHash, _ := obj.hash(timeBytes)
 	pubkeyHash, _ := obj.hash(pubkeyBytes[:65])
 
 	full := make([]byte, 32*4)
@@ -159,10 +159,18 @@ func (obj *SecureJson) getTimestamp() ([]byte, error) {
 	return timeNowBytes, err
 }
 
-func (obj *SecureJson) hash(data []byte) ([]byte, error) {
-	sum := make([]byte, 32)
+func (obj *SecureJson) shake256(data []byte, length int) ([]byte, error) {
+	sum := make([]byte, length)
 	hashObj := sha3.NewShake256()
 	hashObj.Write(data)
 	hashObj.Read(sum)
 	return sum, nil
+}
+
+func (obj *SecureJson) hash(data []byte) ([]byte, error) {
+	return obj.shake256(data, 32)
+}
+
+func (obj *SecureJson) genIv(userName string) ([]byte, error) {
+	return obj.shake256([]byte(userName), 16)
 }

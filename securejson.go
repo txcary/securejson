@@ -24,7 +24,7 @@ type Json struct {
 }
 
 func (obj *SecureJson) Encrypt(data string, userName string, key []byte) (string, error) {
-	iv, _ := obj.hash([]byte(userName))
+	iv, _ := obj.genIv(userName)
 	cipherBytes, err := obj.encrypt([]byte(data), iv, key)
 	return obj.bytesToString(cipherBytes), err
 }
@@ -67,17 +67,18 @@ func (obj *SecureJson) VerifyJson(jsonBytes []byte) (ok bool, err error) {
 	}
 
 	if !obj.checkTimestampBeforeNow(jsonMap.Timestamp) {
+		err = errors.New("Timestamp check fail")
 		return false, err
 	}
 
-	userData := []byte(jsonMap.UserName)
-	encryptedData := obj.stringToBytes(jsonMap.EncryptedData)
-	timeData := obj.stringToBytes(jsonMap.Timestamp)
-	pubkeyData := obj.stringToBytes(jsonMap.PublicKey)
-	sigData := obj.stringToBytes(jsonMap.Signature)
-	fullHash := obj.genHash(userData, encryptedData, timeData, pubkeyData)
+	userBytes := []byte(jsonMap.UserName)
+	encryptedBytes := obj.stringToBytes(jsonMap.EncryptedData)
+	timeBytes := obj.stringToBytes(jsonMap.Timestamp)
+	pubkeyBytes := obj.stringToBytes(jsonMap.PublicKey)
+	sigBytes := obj.stringToBytes(jsonMap.Signature)
+	fullHash := obj.genHash(userBytes, encryptedBytes, timeBytes, pubkeyBytes)
 
-	ok = obj.verify(fullHash, pubkeyData, sigData)
+	ok = obj.verify(fullHash, pubkeyBytes, sigBytes)
 	if ok {
 		return
 	} else {
