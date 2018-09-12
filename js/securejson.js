@@ -1,10 +1,29 @@
-var EC = require('./elliptic/elliptic.min').ec;
-var SHA3 = require('./sha3/sha3.min');
-var AES = require('./aes/index.min')
-var BASE64 = require('./base64/base64js.min')
+/*
+var EC = require('elliptic/elliptic.min').ec;
+var SHA3 = require('sha3/sha3.min');
+var AES = require('aes/index.min');
+var BASE64 = require('base64/base64js.min');
 
 var jsonStr = GenerateJson("MyUser", "1234", "MyData");
 console.log(jsonStr);
+*/
+var EC;
+var SHA3;
+var AES;
+var BASE64;
+
+define(['elliptic','sha3','aes','base64'], function(elliptic, sha3, aes, base64){
+	EC = elliptic.ec;
+	SHA3 = sha3;
+	AES = aes;
+	BASE64 = base64;
+	var GenerateJson = function(user, passwd, data) {
+		return generateJson(user, passwd, data);
+	};
+	return {
+		"GenerateJson": GenerateJson
+	};
+});
 
 function bytesToBase64(bytes) {
 	return BASE64.fromByteArray(bytes);
@@ -28,7 +47,7 @@ function encrypt(dataBytes, ivBytes, keyBytes) {
 	return encryptedBytes;
 }
 
-function GenerateJson(user, passwd, data) {
+function generateJson(user, passwd, data) {
 	var ec = new EC('secp256k1');
 
 	var prikeyHex = SHA3.shake256(passwd, 256);
