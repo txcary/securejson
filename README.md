@@ -1,7 +1,16 @@
 # securejson
 A solution to secure the json content between BE and FE. The secure content only handled by FE, BE verify user's signature and store the encrypted secure content, but never know what is it. 
 
-FE implemented by js, BE implemented by go.
+Why to use this project:
+- Server never know the content of secure data, it's handled by client only.
+- Server never konw the user's password, it's handled by client only.
+
+How does this project implemented:
+- FE implemented by js, BE implemented by go.
+- It's using AES-CTR to encrypt the secure data
+- It's using SHA3-256 (SHAKE) to hash the json content.
+- It's using ECDSA to signing the hash
+- It's using base64 to encode the data.
 
 ## How to use in browser (javascript)
 
