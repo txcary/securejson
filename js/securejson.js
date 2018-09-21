@@ -20,8 +20,18 @@ define(['elliptic','sha3','aes','base64'], function(elliptic, sha3, aes, base64)
 	var GenerateJson = function(user, passwd, data) {
 		return generateJson(user, passwd, data);
 	};
+	var Decrypt = function(user,  passwd, data) {
+		var ec = new EC('secp256k1');
+
+		var iv = SHA3.shake256(user, 128);
+		var prikeyHex = SHA3.shake256(passwd, 256);
+
+		var decryptedBytes = encrypt(base64ToBytes(data), hexToBytes(iv), hexToBytes(prikeyHex));
+		return bytesToString(decryptedBytes);
+	};
 	return {
-		"GenerateJson": GenerateJson
+		"GenerateJson": GenerateJson,
+		"Decrypt": Decrypt
 	};
 });
 
@@ -113,7 +123,7 @@ function genHash(userHex, dataHex, timeHex, pubkeyHex) {
 }
 
 function bytesToString(bytes) {
-	return AES.utils.hex.fromBytes(bytes);
+	return AES.utils.utf8.fromBytes(bytes);
 }
 
 function stringToBytes(str) {
