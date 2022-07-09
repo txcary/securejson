@@ -1,4 +1,4 @@
-name: Go
+name: build-test-gosec
 
 on:
   push:
@@ -18,3 +18,8 @@ jobs:
       run: go build -v ./...
     - name: Test
       run: go test -v ./...
+    - name: gosec ./...
+      run: | # https://github.com/securego/gosec/issues/469
+        export PATH=$PATH:$(go env GOPATH)/bin
+        go install github.com/securego/gosec/v2/cmd/gosec@latest
+        gosec ./...
