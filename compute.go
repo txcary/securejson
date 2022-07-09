@@ -16,7 +16,7 @@ import (
 	"golang.org/x/crypto/sha3"
 )
 
-func (obj *SecureJson) encrypt(plainText []byte, iv []byte, key []byte) ([]byte, error) {
+func (obj *SecureJSON) encrypt(plainText []byte, iv []byte, key []byte) ([]byte, error) {
 	if len(iv) < aes.BlockSize {
 		return []byte{}, errors.New("iv size error")
 	}
@@ -33,7 +33,7 @@ func (obj *SecureJson) encrypt(plainText []byte, iv []byte, key []byte) ([]byte,
 	return cipherText, err
 }
 
-func (obj *SecureJson) genHash(userBytes []byte, encryptedBytes []byte, timeBytes []byte, pubkeyBytes []byte) (fullHash []byte) {
+func (obj *SecureJSON) genHash(userBytes []byte, encryptedBytes []byte, timeBytes []byte, pubkeyBytes []byte) (fullHash []byte) {
 	userHash, _ := obj.hash(userBytes)
 	dataHash, _ := obj.hash(encryptedBytes)
 	timeHash, _ := obj.hash(timeBytes)
@@ -48,15 +48,15 @@ func (obj *SecureJson) genHash(userBytes []byte, encryptedBytes []byte, timeByte
 	return
 }
 
-func (obj *SecureJson) checkInputOutputJson(inputJson []byte, outputJson []byte) (ok bool, err error) {
+func (obj *SecureJSON) checkInputOutputJSON(inputJSON []byte, outputJSON []byte) (ok bool, err error) {
 	ok = false
-	var ji Json
-	err = json.Unmarshal(inputJson, &ji)
+	var ji JSON
+	err = json.Unmarshal(inputJSON, &ji)
 	if err != nil {
 		return
 	}
-	var jo Json
-	err = json.Unmarshal(outputJson, &jo)
+	var jo JSON
+	err = json.Unmarshal(outputJSON, &jo)
 	if err != nil {
 		return
 	}
@@ -77,48 +77,48 @@ func (obj *SecureJson) checkInputOutputJson(inputJson []byte, outputJson []byte)
 	return
 }
 
-func (obj *SecureJson) getUserNameFromJson(inputJson []byte) (userName string, err error) {
-	var jsonStruct Json
+func (obj *SecureJSON) getUserNameFromJSON(inputJSON []byte) (userName string, err error) {
+	var jsonStruct JSON
 	userName = ""
-	err = json.Unmarshal(inputJson, &jsonStruct)
+	err = json.Unmarshal(inputJSON, &jsonStruct)
 	if err == nil {
 		userName = jsonStruct.UserName
 	}
 	return
 }
 
-func (obj *SecureJson) getJsonFromStorage(inputJson []byte) (outputJson []byte, err error) {
-	userName, err := obj.getUserNameFromJson(inputJson)
+func (obj *SecureJSON) getJSONFromStorage(inputJSON []byte) (outputJSON []byte, err error) {
+	userName, err := obj.getUserNameFromJSON(inputJSON)
 	if err == nil {
-		outputJson, err = obj.storageStrategy.Get(userName)
+		outputJSON, err = obj.storageStrategy.Get(userName)
 	}
 	return
 }
 
-func (obj *SecureJson) putJsonToStorage(inputJson []byte) (err error) {
-	userName, err := obj.getUserNameFromJson(inputJson)
+func (obj *SecureJSON) putJSONToStorage(inputJSON []byte) (err error) {
+	userName, err := obj.getUserNameFromJSON(inputJSON)
 	if err == nil {
-		err = obj.storageStrategy.Put(userName, inputJson)
+		err = obj.storageStrategy.Put(userName, inputJSON)
 	}
 	return
 }
 
-func (obj *SecureJson) convertFromStringToInt64(timeStr string) (timestamp int64) {
+func (obj *SecureJSON) convertFromStringToInt64(timeStr string) (timestamp int64) {
 	_, _ = fmt.Sscanf(timeStr, "%x", &timestamp)
 	return
 }
 
-func (obj *SecureJson) checkTimestampBeforeNow(timeStr string) (ok bool) {
+func (obj *SecureJSON) checkTimestampBeforeNow(timeStr string) (ok bool) {
 	timestamp := obj.convertFromStringToInt64(timeStr)
 	timenow := time.Now().UnixNano()
 	return timenow > timestamp
 }
 
-func (obj *SecureJson) bytesToString(msg []byte) string {
+func (obj *SecureJSON) bytesToString(msg []byte) string {
 	return base64.StdEncoding.EncodeToString(msg)
 }
 
-func (obj *SecureJson) stringToBytes(msg string) (res []byte) {
+func (obj *SecureJSON) stringToBytes(msg string) (res []byte) {
 	var err error
 	res, err = base64.StdEncoding.DecodeString(msg)
 	if err != nil {
@@ -127,7 +127,7 @@ func (obj *SecureJson) stringToBytes(msg string) (res []byte) {
 	return
 }
 
-func (obj *SecureJson) verify(msg []byte, pub []byte, sig []byte) bool {
+func (obj *SecureJSON) verify(msg []byte, pub []byte, sig []byte) bool {
 	pubKey, err := btcec.ParsePubKey(pub)
 	if err != nil {
 		return false
@@ -139,7 +139,7 @@ func (obj *SecureJson) verify(msg []byte, pub []byte, sig []byte) bool {
 	return signature.Verify(msg, pubKey)
 }
 
-func (obj *SecureJson) sign(msg []byte, privKey []byte) ([]byte, error) {
+func (obj *SecureJSON) sign(msg []byte, privKey []byte) ([]byte, error) {
 	priv, _ := btcec.PrivKeyFromBytes(privKey)
 	sig, err := priv.ToECDSA().Sign(entropy.GetOptimizedRand(), msg, nil)
 	if err != nil {
@@ -148,21 +148,21 @@ func (obj *SecureJson) sign(msg []byte, privKey []byte) ([]byte, error) {
 	return sig, err
 }
 
-func (obj *SecureJson) getPubKey(privKey []byte) ([]byte, error) {
+func (obj *SecureJSON) getPubKey(privKey []byte) ([]byte, error) {
 	pubKey := make([]byte, 65)
 	_, pub := btcec.PrivKeyFromBytes(privKey)
 	pubKey = pub.SerializeUncompressed()
 	return pubKey, nil
 }
 
-func (obj *SecureJson) getTimestamp() ([]byte, error) {
+func (obj *SecureJSON) getTimestamp() ([]byte, error) {
 	timeNowBytes := make([]byte, 8)
 	timeNowStr := fmt.Sprintf("%x", time.Now().Unix())
 	timeNowBytes, err := hex.DecodeString(timeNowStr)
 	return timeNowBytes, err
 }
 
-func (obj *SecureJson) shake256(data []byte, length int) ([]byte, error) {
+func (obj *SecureJSON) shake256(data []byte, length int) ([]byte, error) {
 	sum := make([]byte, length)
 	hashObj := sha3.NewShake256()
 	_, writeErr := hashObj.Write(data)
@@ -173,10 +173,10 @@ func (obj *SecureJson) shake256(data []byte, length int) ([]byte, error) {
 	return sum, readErr
 }
 
-func (obj *SecureJson) hash(data []byte) ([]byte, error) {
+func (obj *SecureJSON) hash(data []byte) ([]byte, error) {
 	return obj.shake256(data, 32)
 }
 
-func (obj *SecureJson) genIv(userName string) ([]byte, error) {
+func (obj *SecureJSON) genIv(userName string) ([]byte, error) {
 	return obj.shake256([]byte(userName), 16)
 }

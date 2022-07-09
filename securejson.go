@@ -3,6 +3,7 @@ package securejson
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 )
 
 type Storage interface {
@@ -10,33 +11,33 @@ type Storage interface {
 	Get(key string) ([]byte, error)
 }
 
-type SecureJson struct {
+type SecureJSON struct {
 	storageStrategy Storage
 }
 
-type Json struct {
+type JSON struct {
 	UserName      string
 	Signature     string
 	EncryptedData string
 	Timestamp     string
 	PublicKey     string
-	//TODO: NewPublicKey string
+	// TODO: NewPublicKey string
 }
 
-func (obj *SecureJson) Encrypt(data string, userName string, key []byte) (string, error) {
+func (obj *SecureJSON) Encrypt(data string, userName string, key []byte) (string, error) {
 	iv, _ := obj.genIv(userName)
 	cipherBytes, err := obj.encrypt([]byte(data), iv, key)
 	return obj.bytesToString(cipherBytes), err
 }
 
-func (obj *SecureJson) Decrypt(data string, userName string, key []byte) (string, error) {
+func (obj *SecureJSON) Decrypt(data string, userName string, key []byte) (string, error) {
 	iv, _ := obj.hash([]byte(userName))
 	cipherBytes := obj.stringToBytes(data)
 	plainBytes, err := obj.encrypt(cipherBytes, iv, key)
 	return string(plainBytes), err
 }
 
-func (obj *SecureJson) GenerateJson(user string, passwd string, data string) (outputJson []byte, err error) {
+func (obj *SecureJSON) GenerateJSON(user string, passwd string, data string) (outputJSON []byte, err error) {
 	privKey, _ := obj.hash([]byte(passwd))
 	iv, _ := obj.hash([]byte(user))
 
@@ -48,26 +49,30 @@ func (obj *SecureJson) GenerateJson(user string, passwd string, data string) (ou
 	fullHash := obj.genHash(userBytes, encryptedBytes, timeBytes, pubkeyBytes)
 	sigBytes, _ := obj.sign(fullHash, privKey)
 
-	var jsonMap Json
+	var jsonMap JSON
 	jsonMap.UserName = user
 	jsonMap.Signature = obj.bytesToString(sigBytes)
 	jsonMap.EncryptedData = obj.bytesToString(encryptedBytes)
 	jsonMap.Timestamp = obj.bytesToString(timeBytes)
 	jsonMap.PublicKey = obj.bytesToString(pubkeyBytes)
 
-	outputJson, err = json.Marshal(jsonMap)
+	outputJSON, err = json.Marshal(jsonMap)
 	return
 }
 
-func (obj *SecureJson) VerifyJson(jsonBytes []byte) (ok bool, err error) {
-	var jsonMap Json
+func (obj *SecureJSON) VerifyJSON(jsonBytes []byte) (ok bool, err error) {
+	var jsonMap JSON
 	err = json.Unmarshal(jsonBytes, &jsonMap)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("json.Unmarshal failure during verification: %x", err)
+	}
+	if jsonMap.UserName == "" || jsonMap.Signature == "" ||
+		jsonMap.EncryptedData == "" || jsonMap.Timestamp == "" || jsonMap.PublicKey == "" {
+		return false, errors.New("json.Unmarshal failure during verification: missing fields")
 	}
 
 	if !obj.checkTimestampBeforeNow(jsonMap.Timestamp) {
-		err = errors.New("Timestamp check fail")
+		err = errors.New("timestamp check failed")
 		return false, err
 	}
 
@@ -82,47 +87,47 @@ func (obj *SecureJson) VerifyJson(jsonBytes []byte) (ok bool, err error) {
 	if ok {
 		return
 	} else {
-		err = errors.New("Signature verify fail")
+		err = errors.New("signature verify failed")
 		return false, err
 	}
 }
 
-func (obj *SecureJson) PutJson(inputJson []byte) (err error) {
+func (obj *SecureJSON) PutJSON(inputJSON []byte) (err error) {
 	var ok bool
-	if ok, err = obj.VerifyJson(inputJson); !ok || err != nil {
+	if ok, err = obj.VerifyJSON(inputJSON); !ok || err != nil {
 		return
 	}
-	outputJson, err := obj.getJsonFromStorage(inputJson)
+	outputJSON, err := obj.getJSONFromStorage(inputJSON)
 	if err != nil {
-		err = obj.putJsonToStorage(inputJson)
+		err = obj.putJSONToStorage(inputJSON)
 		return
 	}
-	if ok, err = obj.checkInputOutputJson(inputJson, outputJson); err != nil || !ok {
+	if ok, err = obj.checkInputOutputJSON(inputJSON, outputJSON); err != nil || !ok {
 		return
 	}
 
-	err = obj.putJsonToStorage(inputJson)
+	err = obj.putJSONToStorage(inputJSON)
 	return
 }
 
-func (obj *SecureJson) GetJson(inputJson []byte) (outputJson []byte, err error) {
+func (obj *SecureJSON) getJSON(inputJSON []byte) (outputJSON []byte, err error) {
 	var ok bool
-	if ok, err = obj.VerifyJson(inputJson); !ok || err != nil {
+	if ok, err = obj.VerifyJSON(inputJSON); !ok || err != nil {
 		return
 	}
-	outputJson, err = obj.getJsonFromStorage(inputJson)
+	outputJSON, err = obj.getJSONFromStorage(inputJSON)
 	if err != nil {
 		return
 	}
-	if ok, err = obj.checkInputOutputJson(inputJson, outputJson); err != nil || !ok {
-		outputJson = []byte{}
+	if ok, err = obj.checkInputOutputJSON(inputJSON, outputJSON); err != nil || !ok {
+		outputJSON = []byte{}
 		return
 	}
 	return
 }
 
-func New(storageObj Storage) *SecureJson {
-	obj := new(SecureJson)
+func New(storageObj Storage) *SecureJSON {
+	obj := new(SecureJSON)
 	obj.storageStrategy = storageObj
 	return obj
 }

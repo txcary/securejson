@@ -4,7 +4,7 @@ var SHA3 = require('sha3/sha3.min');
 var AES = require('aes/index.min');
 var BASE64 = require('base64/base64js.min');
 
-var jsonStr = GenerateJson("MyUser", "1234", "MyData");
+var jsonStr = GenerateJSON("MyUser", "1234", "MyData");
 console.log(jsonStr);
 */
 var EC;
@@ -17,8 +17,8 @@ define(['elliptic','sha3','aes','base64'], function(elliptic, sha3, aes, base64)
 	SHA3 = sha3;
 	AES = aes;
 	BASE64 = base64;
-	var GenerateJson = function(user, passwd, data) {
-		return generateJson(user, passwd, data);
+	var GenerateJSON = function(user, passwd, data) {
+		return generateJSON(user, passwd, data);
 	};
 	var Decrypt = function(user,  passwd, data) {
 		var ec = new EC('secp256k1');
@@ -30,7 +30,7 @@ define(['elliptic','sha3','aes','base64'], function(elliptic, sha3, aes, base64)
 		return bytesToString(decryptedBytes);
 	};
 	return {
-		"GenerateJson": GenerateJson,
+		"GenerateJSON": GenerateJSON,
 		"Decrypt": Decrypt
 	};
 });
@@ -57,7 +57,7 @@ function encrypt(dataBytes, ivBytes, keyBytes) {
 	return encryptedBytes;
 }
 
-function generateJson(user, passwd, data) {
+function generateJSON(user, passwd, data) {
 	var ec = new EC('secp256k1');
 
 	var prikeyHex = SHA3.shake256(passwd, 256);
