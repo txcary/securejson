@@ -8,9 +8,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/btcsuite/btcd/btcec"
-	"golang.org/x/crypto/sha3"
 	"time"
+
+	"git.tcp.direct/kayos/common/entropy"
+	"github.com/btcsuite/btcd/btcec/v2"
+	"github.com/btcsuite/btcd/btcec/v2/ecdsa"
+	"golang.org/x/crypto/sha3"
 )
 
 func (obj *SecureJson) encrypt(plainText []byte, iv []byte, key []byte) ([]byte, error) {
@@ -23,7 +26,7 @@ func (obj *SecureJson) encrypt(plainText []byte, iv []byte, key []byte) ([]byte,
 		return []byte{}, err
 	}
 	cipherText := make([]byte, len(plainText))
-	//iv := make([]byte, aes.BlockSize)
+	// iv := make([]byte, aes.BlockSize)
 
 	stream := cipher.NewCTR(block, iv[:aes.BlockSize])
 	stream.XORKeyStream(cipherText, plainText)
@@ -63,11 +66,11 @@ func (obj *SecureJson) checkInputOutputJson(inputJson []byte, outputJson []byte)
 		return
 	}
 	if ji.PublicKey != jo.PublicKey {
-		err = errors.New("Check fail for PublicKey")
+		err = errors.New("check failed for PublicKey")
 		return
 	}
 	if obj.convertFromStringToInt64(ji.Timestamp) < obj.convertFromStringToInt64(jo.Timestamp) {
-		err = errors.New("Check fail for Timestamp. Input timestamp must be greater then the ouput one.")
+		err = errors.New("input timestamp must be greater then the ouput one")
 		return
 	}
 	ok = true
@@ -101,14 +104,14 @@ func (obj *SecureJson) putJsonToStorage(inputJson []byte) (err error) {
 }
 
 func (obj *SecureJson) convertFromStringToInt64(timeStr string) (timestamp int64) {
-	fmt.Sscanf(timeStr, "%x", &timestamp)
+	_, _ = fmt.Sscanf(timeStr, "%x", &timestamp)
 	return
 }
 
 func (obj *SecureJson) checkTimestampBeforeNow(timeStr string) (ok bool) {
 	timestamp := obj.convertFromStringToInt64(timeStr)
 	timenow := time.Now().UnixNano()
-	return (timenow > timestamp)
+	return timenow > timestamp
 }
 
 func (obj *SecureJson) bytesToString(msg []byte) string {
@@ -125,11 +128,11 @@ func (obj *SecureJson) stringToBytes(msg string) (res []byte) {
 }
 
 func (obj *SecureJson) verify(msg []byte, pub []byte, sig []byte) bool {
-	pubKey, err := btcec.ParsePubKey(pub, btcec.S256())
+	pubKey, err := btcec.ParsePubKey(pub)
 	if err != nil {
 		return false
 	}
-	signature, err := btcec.ParseSignature(sig, btcec.S256())
+	signature, err := ecdsa.ParseSignature(sig)
 	if err != nil {
 		return false
 	}
@@ -137,17 +140,17 @@ func (obj *SecureJson) verify(msg []byte, pub []byte, sig []byte) bool {
 }
 
 func (obj *SecureJson) sign(msg []byte, privKey []byte) ([]byte, error) {
-	priv, _ := btcec.PrivKeyFromBytes(btcec.S256(), privKey)
-	sig, err := priv.Sign(msg)
+	priv, _ := btcec.PrivKeyFromBytes(privKey)
+	sig, err := priv.ToECDSA().Sign(entropy.GetOptimizedRand(), msg, nil)
 	if err != nil {
 		return []byte{}, err
 	}
-	return sig.Serialize(), err
+	return sig, err
 }
 
 func (obj *SecureJson) getPubKey(privKey []byte) ([]byte, error) {
 	pubKey := make([]byte, 65)
-	_, pub := btcec.PrivKeyFromBytes(btcec.S256(), privKey)
+	_, pub := btcec.PrivKeyFromBytes(privKey)
 	pubKey = pub.SerializeUncompressed()
 	return pubKey, nil
 }
@@ -162,9 +165,12 @@ func (obj *SecureJson) getTimestamp() ([]byte, error) {
 func (obj *SecureJson) shake256(data []byte, length int) ([]byte, error) {
 	sum := make([]byte, length)
 	hashObj := sha3.NewShake256()
-	hashObj.Write(data)
-	hashObj.Read(sum)
-	return sum, nil
+	_, writeErr := hashObj.Write(data)
+	if writeErr != nil {
+		return sum, writeErr
+	}
+	_, readErr := hashObj.Read(sum)
+	return sum, readErr
 }
 
 func (obj *SecureJson) hash(data []byte) ([]byte, error) {
