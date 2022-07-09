@@ -1,4 +1,4 @@
-module securejson
+module github.com/txcary/securejson
 
 go 1.18
 
