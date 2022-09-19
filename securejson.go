@@ -15,7 +15,7 @@ type SecureJSON struct {
 	storageStrategy Storage
 }
 
-type JSON struct {
+type Payload struct {
 	UserName      string
 	Signature     string
 	EncryptedData string
@@ -49,7 +49,7 @@ func (obj *SecureJSON) GenerateJSON(user string, passwd string, data string) (ou
 	fullHash := obj.genHash(userBytes, encryptedBytes, timeBytes, pubkeyBytes)
 	sigBytes, _ := obj.sign(fullHash, privKey)
 
-	var jsonMap JSON
+	var jsonMap Payload
 	jsonMap.UserName = user
 	jsonMap.Signature = obj.bytesToString(sigBytes)
 	jsonMap.EncryptedData = obj.bytesToString(encryptedBytes)
@@ -61,7 +61,7 @@ func (obj *SecureJSON) GenerateJSON(user string, passwd string, data string) (ou
 }
 
 func (obj *SecureJSON) VerifyJSON(jsonBytes []byte) (ok bool, err error) {
-	var jsonMap JSON
+	var jsonMap Payload
 	err = json.Unmarshal(jsonBytes, &jsonMap)
 	if err != nil {
 		return false, fmt.Errorf("json.Unmarshal failure during verification: %x", err)

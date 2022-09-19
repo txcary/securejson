@@ -3,7 +3,10 @@ package securejson
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"testing"
+
+	"git.tcp.direct/kayos/common/entropy"
 )
 
 type StubStorage struct {
@@ -28,15 +31,22 @@ func (obj *StubStorage) Get(key string) ([]byte, error) {
 	return obj.jsonBytes, nil
 }
 
-func testJSON(t *testing.T, jsonBytes []byte, logPrefix string, obj *SecureJSON) {
-	ok, err := obj.VerifyJSON(jsonBytes)
+func validate(jsonBytes []byte, obj *SecureJSON) (data *Payload, err error) {
+	var ok bool
+	ok, err = obj.VerifyJSON(jsonBytes)
 	if err != nil || !ok {
-		t.Errorf("%s: VerifyJSON failed: %s", logPrefix, err)
+		return nil, fmt.Errorf("failed to validate Payload: %s", err)
 	}
-	var data JSON
-	err = json.Unmarshal(jsonBytes, &data)
+	if err = json.Unmarshal(jsonBytes, &data); err != nil {
+		err = fmt.Errorf("failed to unmarshal: %s", err)
+	}
+	return
+}
+
+func testJSON(t *testing.T, jsonBytes []byte, logPrefix string, obj *SecureJSON) {
+	data, err := validate(jsonBytes, obj)
 	if err != nil {
-		t.Errorf("%s: Unmarshal failed: %s", logPrefix, err)
+		t.Errorf("[%s]: %s", logPrefix, err)
 	}
 	passwd, _ := obj.hash([]byte("1234"))
 	plain, err := obj.Decrypt(data.EncryptedData, data.UserName, passwd)
@@ -44,7 +54,7 @@ func testJSON(t *testing.T, jsonBytes []byte, logPrefix string, obj *SecureJSON)
 		t.Errorf("%s: Decrypt failed: %s", logPrefix, err)
 	}
 	if plain != "MyData" {
-		t.Errorf("%s: Decrypt failed: %s", logPrefix, err)
+		t.Errorf("%s: Decrypt failed, wanted %v, but got %v", logPrefix, "MyData", plain)
 	}
 }
 
@@ -69,12 +79,50 @@ func TestNew(t *testing.T) {
 	t.Log("trying to store a value...")
 	err = obj.PutJSON(jsonBytes)
 	if err != nil {
-		t.Errorf("Put JSON failed: %s", err)
+		t.Errorf("Put Payload failed: %s", err)
 	}
 	t.Log("trying to get the stored value...")
 	_, err = obj.getJSON(jsonBytes)
 	if err != nil {
-		t.Errorf("Get JSON failed: %x", err)
+		t.Errorf("Get Payload failed: %x", err)
 	}
 	testJSON(t, jsonBytes, "Get", obj)
+}
+
+func TestEntropic(t *testing.T) {
+	storage := new(StubStorage)
+	storage.t = t
+	for i := 0; i < 100; i++ {
+		err := entropyTest(storage)
+		if err != nil {
+			t.Fatalf("entropyTest failed: %s", err)
+		}
+	}
+}
+
+func entropyTest(storage *StubStorage) error {
+	sjsonFactory := New(storage)
+	user := entropy.RandStr(10)
+	pass := entropy.RandStr(25)
+	hashed, err := sjsonFactory.hash([]byte(pass))
+	if err != nil {
+		return err
+	}
+	data := entropy.RandStr(100)
+	jsonBytes, err := sjsonFactory.GenerateJSON(user, pass, data)
+	if err != nil {
+		return err
+	}
+	validCiphertext, err := validate(jsonBytes, sjsonFactory)
+	if err != nil {
+		return err
+	}
+	plaintext, err := sjsonFactory.Decrypt(validCiphertext.EncryptedData, user, hashed)
+	if err != nil {
+		return err
+	}
+	if plaintext != data {
+		return fmt.Errorf("plaintext != data\n%v != %v", plaintext, data)
+	}
+	return nil
 }

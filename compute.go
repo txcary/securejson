@@ -50,12 +50,12 @@ func (obj *SecureJSON) genHash(userBytes []byte, encryptedBytes []byte, timeByte
 
 func (obj *SecureJSON) checkInputOutputJSON(inputJSON []byte, outputJSON []byte) (ok bool, err error) {
 	ok = false
-	var ji JSON
+	var ji Payload
 	err = json.Unmarshal(inputJSON, &ji)
 	if err != nil {
 		return
 	}
-	var jo JSON
+	var jo Payload
 	err = json.Unmarshal(outputJSON, &jo)
 	if err != nil {
 		return
@@ -78,7 +78,7 @@ func (obj *SecureJSON) checkInputOutputJSON(inputJSON []byte, outputJSON []byte)
 }
 
 func (obj *SecureJSON) getUserNameFromJSON(inputJSON []byte) (userName string, err error) {
-	var jsonStruct JSON
+	var jsonStruct Payload
 	userName = ""
 	err = json.Unmarshal(inputJSON, &jsonStruct)
 	if err == nil {
